@@ -3,15 +3,16 @@ import { getAllProducts, getProductBySlug, getProductGallery } from "@/lib/produ
 import { CATEGORIES } from "@/lib/categories";
 import ProductDetail from "@/components/ProductDetail";
 
-export function generateStaticParams() {
-  return getAllProducts().map((p) => ({ slug: p.slug }));
+export async function generateStaticParams() {
+  const products = await getAllProducts();
+  return products.map((p) => ({ slug: p.slug }));
 }
 
 type Props = { params: Promise<{ slug: string }> };
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) notFound();
 
   const cat = CATEGORIES.find((c) => c.label === product.category);

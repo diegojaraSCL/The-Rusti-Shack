@@ -3,9 +3,12 @@ import { CATEGORIES } from "@/lib/categories";
 import { getAllProducts, getProductsByCategory } from "@/lib/products";
 import ProductCard from "@/components/ProductCard";
 
-export default function HomePage() {
-  const products = getAllProducts();
-  const featured = CATEGORIES.map((cat) => getProductsByCategory(cat.label)[0]).filter(Boolean);
+export default async function HomePage() {
+  const products = await getAllProducts();
+  const byCategory = Object.fromEntries(
+    await Promise.all(CATEGORIES.map(async (cat) => [cat.label, await getProductsByCategory(cat.label)] as const))
+  );
+  const featured = CATEGORIES.map((cat) => byCategory[cat.label][0]).filter(Boolean);
 
   return (
     <>
@@ -44,7 +47,7 @@ export default function HomePage() {
         <h2 className="text-2xl font-bold text-navy-800 mb-6">Shop by Category</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {CATEGORIES.map((cat) => {
-            const count = getProductsByCategory(cat.label).length;
+            const count = byCategory[cat.label].length;
             return (
               <Link
                 key={cat.slug}

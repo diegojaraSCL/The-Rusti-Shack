@@ -1,8 +1,6 @@
-import * as XLSX from "xlsx";
-import fs from "fs";
-import path from "path";
 import { CATEGORIES, type Category } from "./categories";
 import { pickCardImage, getGalleryForColor, type ProductImage } from "./images";
+import { supabase } from "./supabase";
 
 export type Product = {
   sku: string;
@@ -25,18 +23,17 @@ type ProductRow = {
   SKU: string;
   ProductName: string;
   Category: string;
-  Subcategory: string;
+  Subcategory: string | null;
   UnitPrice: number;
-  Weight_kg: number;
-  RentalRate: number | string;
+  Weight_kg: number | null;
+  RentalRate: number | null;
   Availability: string;
-  ParentSKU: string;
-  Size: string;
-  Color: string;
+  ParentSKU: string | null;
+  Size: string | null;
+  Color: string | null;
   VariantType: string;
+  OnHandQty: number | null;
 };
-
-type InventoryRow = { SKU: string; OnHandQty: number };
 
 // Hand-written copy — the spreadsheet has no description column, so these fill in
 // the marketing voice. Falls back to a generic line for any SKU not covered here.
@@ -90,13 +87,12 @@ const DESCRIPTIONS: Record<string, string> = {
 
 let _products: Product[] | null = null;
 
-function buildProducts(): Product[] {
-  const file = path.join(process.cwd(), "data", "The_Rusti_Shack_Dataset.xlsx");
-  const buffer = fs.readFileSync(file);
-  const wb = XLSX.read(buffer, { type: "buffer" });
-  const rows = XLSX.utils.sheet_to_json<ProductRow>(wb.Sheets["Products"], { defval: "" });
-  const inventory = XLSX.utils.sheet_to_json<InventoryRow>(wb.Sheets["Inventory"], { defval: "" });
-  const onHandBySku = new Map(inventory.map((r) => [r.SKU, Number(r.OnHandQty) || 0]));
+async function buildProducts(): Promise<Product[]> {
+  const { data, error } = await supabase.from("products").select("*");
+  if (error) {
+    throw new Error(`Failed to load products from Supabase: ${error.message}`);
+  }
+  const rows = (data ?? []) as ProductRow[];
 
   const families = new Map<string, ProductRow[]>();
   for (const row of rows) {
@@ -111,8 +107,8 @@ function buildProducts(): Product[] {
   for (const [familySku, group] of families) {
     const parent = group.find((r) => r.VariantType !== "Variant") ?? group[0];
     const variants = group.filter((r) => r.VariantType === "Variant");
-    const sizes = [...new Set(variants.map((r) => r.Size).filter(Boolean))];
-    const colors = [...new Set(variants.map((r) => r.Color).filter(Boolean))];
+    const sizes = [...new Set(variants.map((r) => r.Size).filter((v): v is string => Boolean(v)))];
+    const colors = [...new Set(variants.map((r) => r.Color).filter((v): v is string => Boolean(v)))];
 
     if (!validCategories.has(parent.Category as Category)) continue;
 
@@ -124,14 +120,14 @@ function buildProducts(): Product[] {
       slug: familySku.toLowerCase(),
       name: parent.ProductName,
       category: parent.Category as Category,
-      subcategory: parent.Subcategory,
+      subcategory: parent.Subcategory ?? "",
       price: Number(parent.UnitPrice),
       rentable,
       dailyRental,
       sizes,
       colors,
-      onHand: onHandBySku.get(familySku) ?? 0,
-      weight: Number(parent.Weight_kg),
+      onHand: parent.OnHandQty ?? 0,
+      weight: Number(parent.Weight_kg ?? 0),
       description: DESCRIPTIONS[familySku] ?? `${parent.ProductName} — available at The Rusti Shack on Apo Island.`,
       cardImage: pickCardImage(familySku, colors),
     });
@@ -140,17 +136,17 @@ function buildProducts(): Product[] {
   return products.sort((a, b) => a.sku.localeCompare(b.sku));
 }
 
-export function getAllProducts(): Product[] {
-  if (!_products) _products = buildProducts();
+export async function getAllProducts(): Promise<Product[]> {
+  if (!_products) _products = await buildProducts();
   return _products;
 }
 
-export function getProductBySlug(slug: string): Product | undefined {
-  return getAllProducts().find((p) => p.slug === slug);
+export async function getProductBySlug(slug: string): Promise<Product | undefined> {
+  return (await getAllProducts()).find((p) => p.slug === slug);
 }
 
-export function getProductsByCategory(category: Category): Product[] {
-  return getAllProducts().filter((p) => p.category === category);
+export async function getProductsByCategory(category: Category): Promise<Product[]> {
+  return (await getAllProducts()).filter((p) => p.category === category);
 }
 
 export function getProductGallery(sku: string, color: string | null): ProductImage[] {
