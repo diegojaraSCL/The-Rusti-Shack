@@ -53,9 +53,10 @@ export default function CheckoutPage() {
   const { items, subtotal } = useCart();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  if (items.length === 0 && !submitted) {
+  if (items.length === 0) {
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center">
         <p className="text-5xl mb-4">🛒</p>
@@ -77,33 +78,34 @@ export default function CheckoutPage() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nextErrors = validate(form);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) setSubmitted(true);
-  }
+    if (Object.keys(nextErrors).length > 0) return;
 
-  if (submitted) {
-    return (
-      <div className="max-w-xl mx-auto px-4 py-20 text-center">
-        <p className="text-5xl mb-4">🚧</p>
-        <h1 className="text-2xl font-bold text-navy-800 mb-2">Almost there</h1>
-        <p className="text-gray-600 mb-1">
-          Thanks, {form.firstName}. Your details are ready to send to payment.
-        </p>
-        <p className="text-gray-600 mb-6">
-          Stripe checkout isn&rsquo;t wired up yet — that&rsquo;s next. Your order total will be{" "}
-          <strong>{formatPrice(total)}</strong>, shipping to {form.city}, {form.country}.
-        </p>
-        <Link
-          href="/cart"
-          className="inline-block bg-teal-500 hover:bg-teal-600 text-white font-bold px-6 py-3 rounded-xl transition-colors"
-        >
-          Back to cart
-        </Link>
-      </div>
-    );
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({ sku: i.sku, quantity: i.quantity, size: i.size, color: i.color })),
+          customer: form,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        setSubmitError(data.error || "Something went wrong. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
+      setSubmitting(false);
+    }
   }
 
   const inputClass = (hasError: boolean) =>
@@ -228,11 +230,18 @@ export default function CheckoutPage() {
             Join Rusti&rsquo;s loyalty list
           </label>
 
+          {submitError && (
+            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {submitError}
+            </p>
+          )}
+
           <button
             type="submit"
-            className="w-full py-4 rounded-2xl font-bold text-lg bg-coral-500 hover:bg-coral-600 text-white transition-colors"
+            disabled={submitting}
+            className="w-full py-4 rounded-2xl font-bold text-lg bg-coral-500 hover:bg-coral-600 disabled:opacity-60 text-white transition-colors"
           >
-            Continue to payment
+            {submitting ? "Redirecting to payment…" : "Continue to payment"}
           </button>
         </form>
 
