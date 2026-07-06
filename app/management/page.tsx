@@ -3,11 +3,13 @@ import { isValidSession, MANAGEMENT_COOKIE_NAME } from "@/lib/management-auth";
 import { fetchOrders, fetchOrderLines, fetchCustomers, fetchProducts, type OrderRow } from "@/lib/management-data";
 import { computeMonthlyFinancials } from "@/lib/management-aggregates";
 import { buildForecastModels, truncateToContiguous, MAX_HORIZON } from "@/lib/management-forecast-data";
+import { computeReorderAnalysis, LEAD_TIME_DAYS, SERVICE_Z } from "@/lib/management-inventory";
 import ManagementLogin from "@/components/ManagementLogin";
 import Dashboard from "@/components/management/Dashboard";
 import OverviewSection, { type OverviewData } from "@/components/management/OverviewSection";
 import HistoricalsSection from "@/components/management/HistoricalsSection";
 import ForecastingSection from "@/components/management/ForecastingSection";
+import InventorySection from "@/components/management/InventorySection";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +80,7 @@ export default async function ManagementPage() {
   const monthlyFinancials = computeMonthlyFinancials(orders, lines);
   const forecastModels = buildForecastModels(monthlyFinancials);
   const forecastHistoryLength = truncateToContiguous(monthlyFinancials).length;
+  const inventoryRows = computeReorderAnalysis(orders, lines, products);
 
   const availableYears = [...new Set(orders.map((o) => Number(o.OrderDate.slice(0, 4))))].sort((a, b) => a - b);
 
@@ -98,6 +101,11 @@ export default async function ManagementPage() {
           content: (
             <ForecastingSection models={forecastModels} historyLength={forecastHistoryLength} maxHorizon={MAX_HORIZON} />
           ),
+        },
+        {
+          id: "inventory",
+          label: "Inventory",
+          content: <InventorySection rows={inventoryRows} leadTimeDays={LEAD_TIME_DAYS} serviceZ={SERVICE_Z} />,
         },
       ]}
     />
