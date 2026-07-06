@@ -2,10 +2,12 @@ import { cookies } from "next/headers";
 import { isValidSession, MANAGEMENT_COOKIE_NAME } from "@/lib/management-auth";
 import { fetchOrders, fetchOrderLines, fetchCustomers, fetchProducts, type OrderRow } from "@/lib/management-data";
 import { computeMonthlyFinancials } from "@/lib/management-aggregates";
+import { buildForecastModels, truncateToContiguous, MAX_HORIZON } from "@/lib/management-forecast-data";
 import ManagementLogin from "@/components/ManagementLogin";
 import Dashboard from "@/components/management/Dashboard";
 import OverviewSection, { type OverviewData } from "@/components/management/OverviewSection";
 import HistoricalsSection from "@/components/management/HistoricalsSection";
+import ForecastingSection from "@/components/management/ForecastingSection";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +76,8 @@ export default async function ManagementPage() {
 
   const overview = loadOverview(orders, lines, customers, products);
   const monthlyFinancials = computeMonthlyFinancials(orders, lines);
+  const forecastModels = buildForecastModels(monthlyFinancials);
+  const forecastHistoryLength = truncateToContiguous(monthlyFinancials).length;
 
   const availableYears = [...new Set(orders.map((o) => Number(o.OrderDate.slice(0, 4))))].sort((a, b) => a - b);
 
@@ -87,6 +91,13 @@ export default async function ManagementPage() {
           label: "Revenue & Margin",
           usesYearFilter: true,
           content: <HistoricalsSection monthly={monthlyFinancials} />,
+        },
+        {
+          id: "forecasting",
+          label: "Forecasting",
+          content: (
+            <ForecastingSection models={forecastModels} historyLength={forecastHistoryLength} maxHorizon={MAX_HORIZON} />
+          ),
         },
       ]}
     />
