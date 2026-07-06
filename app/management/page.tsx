@@ -1,9 +1,11 @@
 import { cookies } from "next/headers";
 import { isValidSession, MANAGEMENT_COOKIE_NAME } from "@/lib/management-auth";
 import { fetchOrders, fetchOrderLines, fetchCustomers, fetchProducts, type OrderRow } from "@/lib/management-data";
+import { computeMonthlyFinancials } from "@/lib/management-aggregates";
 import ManagementLogin from "@/components/ManagementLogin";
 import Dashboard from "@/components/management/Dashboard";
 import OverviewSection, { type OverviewData } from "@/components/management/OverviewSection";
+import HistoricalsSection from "@/components/management/HistoricalsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -71,13 +73,22 @@ export default async function ManagementPage() {
   ]);
 
   const overview = loadOverview(orders, lines, customers, products);
+  const monthlyFinancials = computeMonthlyFinancials(orders, lines);
 
   const availableYears = [...new Set(orders.map((o) => Number(o.OrderDate.slice(0, 4))))].sort((a, b) => a - b);
 
   return (
     <Dashboard
       availableYears={availableYears}
-      sections={[{ id: "overview", label: "Overview", content: <OverviewSection data={overview} /> }]}
+      sections={[
+        { id: "overview", label: "Overview", content: <OverviewSection data={overview} /> },
+        {
+          id: "historicals",
+          label: "Revenue & Margin",
+          usesYearFilter: true,
+          content: <HistoricalsSection monthly={monthlyFinancials} />,
+        },
+      ]}
     />
   );
 }
