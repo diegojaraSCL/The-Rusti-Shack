@@ -4,7 +4,11 @@ import { isValidSession, MANAGER_COOKIE_NAME } from "@/lib/manager-auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 function csvField(value: unknown): string {
-  const s = String(value ?? "");
+  let s = String(value ?? "");
+  // Neutralize CSV formula injection: a customer-supplied name like
+  // "=HYPERLINK(...)" would otherwise execute as a formula when this file
+  // is opened in Excel/Sheets. Prefixing with a quote forces literal text.
+  if (/^[=+\-@]/.test(s)) s = `'${s}`;
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
