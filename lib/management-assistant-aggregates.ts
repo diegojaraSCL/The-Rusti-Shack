@@ -1,5 +1,5 @@
 import "server-only";
-import type { OrderRow, OrderLineRow, ProductRow } from "./management-data";
+import type { OrderRow, OrderLineRow, ProductRow, CustomerCoreRow } from "./management-data";
 
 // These aggregates exist specifically for the AI assistant's read-only tools
 // (Part D). They never surface customer name/email/phone/city/country —
@@ -64,4 +64,71 @@ export function computeProductAffinity(lines: OrderLineRow[], products: ProductR
     })
     .sort((a, b) => b.timesTogether - a.timesTogether)
     .slice(0, limit);
+}
+
+export type MonthlyRevenueByType = { months: string[]; series: { type: string; values: number[] }[] };
+
+// Monthly revenue split by CustomerType (Local/Tourist/Shipping) -- shaped
+// to drop straight into the render_line_chart tool's xLabels/series args.
+export function computeMonthlyRevenueByCustomerType(
+  orders: OrderRow[],
+  customers: CustomerCoreRow[],
+  monthsBack: number
+): MonthlyRevenueByType {
+  const typeByCustomer = new Map(customers.map((c) => [c.CustomerID, c.CustomerType]));
+  const byMonth = new Map<string, Map<string, number>>();
+  for (const o of orders) {
+    const month = o.OrderDate.slice(0, 7);
+    const type = typeByCustomer.get(o.CustID) ?? "Unknown";
+    if (!byMonth.has(month)) byMonth.set(month, new Map());
+    const typeMap = byMonth.get(month)!;
+    typeMap.set(type, (typeMap.get(type) ?? 0) + Number(o.OrderTotal));
+  }
+
+  const months = [...byMonth.keys()].sort().slice(-monthsBack);
+  const types = [...new Set(customers.map((c) => c.CustomerType))];
+  const series = types.map((type) => ({
+    type,
+    values: months.map((m) => Math.round((byMonth.get(m)?.get(type) ?? 0) * 100) / 100),
+  }));
+
+  return { months, series };
+}
+
+export type MonthlyRevenueByChannel = { months: string[]; series: { channel: string; values: number[] }[] };
+
+// Monthly revenue split by sales Channel (Walk-in/Shipping) -- same shape
+// as computeMonthlyRevenueByCustomerType, for the same line-chart tool.
+export function computeMonthlyRevenueByChannel(orders: OrderRow[], monthsBack: number): MonthlyRevenueByChannel {
+  const byMonth = new Map<string, Map<string, number>>();
+  for (const o of orders) {
+    const month = o.OrderDate.slice(0, 7);
+    if (!byMonth.has(month)) byMonth.set(month, new Map());
+    const channelMap = byMonth.get(month)!;
+    channelMap.set(o.Channel, (channelMap.get(o.Channel) ?? 0) + Number(o.OrderTotal));
+  }
+
+  const months = [...byMonth.keys()].sort().slice(-monthsBack);
+  const channels = [...new Set(orders.map((o) => o.Channel))];
+  const series = channels.map((channel) => ({
+    channel,
+    values: months.map((m) => Math.round((byMonth.get(m)?.get(channel) ?? 0) * 100) / 100),
+  }));
+
+  return { months, series };
+}
+
+export type PaymentMethodBreakdown = { method: string; orderCount: number; revenue: number };
+
+export function computePaymentMethodBreakdown(orders: OrderRow[]): PaymentMethodBreakdown[] {
+  const byMethod = new Map<string, { orders: number; revenue: number }>();
+  for (const o of orders) {
+    const entry = byMethod.get(o.PaymentMethod) ?? { orders: 0, revenue: 0 };
+    entry.orders += 1;
+    entry.revenue += Number(o.OrderTotal);
+    byMethod.set(o.PaymentMethod, entry);
+  }
+  return [...byMethod.entries()]
+    .map(([method, v]) => ({ method, orderCount: v.orders, revenue: Math.round(v.revenue * 100) / 100 }))
+    .sort((a, b) => b.revenue - a.revenue);
 }

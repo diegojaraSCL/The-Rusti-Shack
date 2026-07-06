@@ -7,12 +7,15 @@ import type { GeminiModelId } from "./management-assistant-gemini";
 // Both fail closed — a caller over either cap is refused outright, never
 // queued or silently degraded. See Part_D_Research_Writeup.docx, Section 4.
 
-// Set at/under Gemini's own published free-tier limits (~10-15 RPM, ~1,500
-// RPD) so our endpoint refuses before Google's API would anyway return a
-// 429 — a clearer error message for whoever's testing, and a real ceiling
-// once/if a paid key is behind this.
-const RPM_CAP = 10;
-const RPD_CAP = 1400;
+// Meant to sit at/under Gemini's own free-tier limits so our endpoint
+// refuses before Google's API would anyway return a 429 — a clearer error
+// message for whoever's testing. The assignment's own ballpark (~1,500/day)
+// turned out to be optimistic: this account's actual observed free-tier
+// limit for gemini-2.5-flash was "limit: 20" per Google's own 429 response
+// body. Set below that; re-check aistudio.google.com/rate-limit for the
+// live number if this still trips Google's own limit first.
+const RPM_CAP = 8;
+const RPD_CAP = 15;
 
 // A genuinely busy day of real use was estimated at ~$0.20-0.60 (Section 3
 // of the write-up); these ceilings sit comfortably above that so normal use

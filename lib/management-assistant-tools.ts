@@ -19,7 +19,13 @@ import {
   computeSeasonality,
 } from "./management-extra-aggregates";
 import { computeReorderAnalysis } from "./management-inventory";
-import { computeTopCustomersBySpend, computeProductAffinity } from "./management-assistant-aggregates";
+import {
+  computeTopCustomersBySpend,
+  computeProductAffinity,
+  computeMonthlyRevenueByCustomerType,
+  computeMonthlyRevenueByChannel,
+  computePaymentMethodBreakdown,
+} from "./management-assistant-aggregates";
 import type { ToolDeclaration } from "./management-assistant-gemini";
 
 // Every tool here is read-only: it queries in-memory data already fetched
@@ -98,6 +104,15 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     parameters: { type: "object", properties: {} },
   },
   {
+    name: "get_revenue_by_customer_type",
+    description:
+      "Monthly revenue broken down by customer type (Local/Tourist/Shipping) over time. Use this — not get_customer_segments — for trend or line-chart questions comparing how customer types' spending has moved month to month.",
+    parameters: {
+      type: "object",
+      properties: { months: { type: "number", description: "How many recent months to return, max 36. Defaults to 12." } },
+    },
+  },
+  {
     name: "get_customer_geography",
     description: "Customer counts and revenue grouped by country. Aggregated only — never tied to an individual customer.",
     parameters: {
@@ -112,6 +127,19 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       type: "object",
       properties: { limit: { type: "number", description: `Max pairs, capped at ${MAX_CHART_ITEMS}. Defaults to 10.` } },
     },
+  },
+  {
+    name: "get_revenue_by_channel",
+    description: "Monthly revenue broken down by sales channel (Walk-in vs. Shipping/online) over time — use for trend or line-chart questions about online vs. in-person business.",
+    parameters: {
+      type: "object",
+      properties: { months: { type: "number", description: "How many recent months to return, max 36. Defaults to 12." } },
+    },
+  },
+  {
+    name: "get_payment_method_breakdown",
+    description: "Order count and revenue grouped by payment method (Card/Cash/GCash/BankTransfer).",
+    parameters: { type: "object", properties: {} },
   },
   {
     name: "get_promotion_performance",
@@ -240,6 +268,10 @@ export function executeAssistantTool(
       );
       return { result: { bySegment, repeatCustomers, oneTimeCustomers, repeatRevenue, oneTimeRevenue } };
     }
+    case "get_revenue_by_customer_type": {
+      const months = Math.max(1, Math.min(36, typeof args.months === "number" ? args.months : 12));
+      return { result: computeMonthlyRevenueByCustomerType(data.orders, data.customers, months) };
+    }
     case "get_customer_geography": {
       const limit = capLimit(args.limit);
       const { byCountry } = computeCustomerInsights(data.orders, data.customers);
@@ -248,6 +280,13 @@ export function executeAssistantTool(
     case "get_product_affinity": {
       const limit = capLimit(args.limit);
       return { result: computeProductAffinity(data.lines, data.products, limit) };
+    }
+    case "get_revenue_by_channel": {
+      const months = Math.max(1, Math.min(36, typeof args.months === "number" ? args.months : 12));
+      return { result: computeMonthlyRevenueByChannel(data.orders, months) };
+    }
+    case "get_payment_method_breakdown": {
+      return { result: computePaymentMethodBreakdown(data.orders) };
     }
     case "get_promotion_performance": {
       return { result: computePromotionPerformance(data.orders, data.orderPromotions, data.promotions, data.lines) };
