@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkPassword, managerCookieOptions } from "@/lib/manager-auth";
+import { checkPassword, managementCookieOptions } from "@/lib/management-auth";
 
 export async function POST(req: Request) {
   let body: { password?: unknown };
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ ok: true });
-  const cookie = managerCookieOptions();
+  const cookie = managementCookieOptions();
   res.cookies.set(cookie.name, cookie.value, cookie);
   return res;
 }

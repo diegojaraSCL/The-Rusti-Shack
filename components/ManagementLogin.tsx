@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function ManagerLogin() {
+export default function ManagementLogin() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +14,7 @@ export default function ManagerLogin() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/manager/login", {
+      const res = await fetch("/api/management/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
@@ -35,7 +35,7 @@ export default function ManagerLogin() {
   return (
     <div className="max-w-sm mx-auto px-4 py-24">
       <h1 className="text-xl font-bold text-navy-800 mb-1">Staff only</h1>
-      <p className="text-sm text-gray-500 mb-6">Enter the manager password to continue.</p>
+      <p className="text-sm text-gray-500 mb-6">Enter the management password to continue.</p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="password"
