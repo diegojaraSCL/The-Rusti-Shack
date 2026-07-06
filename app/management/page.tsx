@@ -1,15 +1,18 @@
 import { cookies } from "next/headers";
 import { isValidSession, MANAGEMENT_COOKIE_NAME } from "@/lib/management-auth";
-import { fetchOrders, fetchOrderLines, fetchCustomers, fetchProducts } from "@/lib/management-data";
+import { fetchOrders, fetchOrderLines, fetchCustomers, fetchProducts, type OrderRow } from "@/lib/management-data";
 import ManagementLogin from "@/components/ManagementLogin";
 import Dashboard from "@/components/management/Dashboard";
 import OverviewSection, { type OverviewData } from "@/components/management/OverviewSection";
 
 export const dynamic = "force-dynamic";
 
-async function loadOverview(): Promise<OverviewData> {
-  const [orders, lines, customers] = await Promise.all([fetchOrders(), fetchOrderLines(), fetchCustomers()]);
-
+function loadOverview(
+  orders: OrderRow[],
+  lines: Awaited<ReturnType<typeof fetchOrderLines>>,
+  customers: Awaited<ReturnType<typeof fetchCustomers>>,
+  products: Awaited<ReturnType<typeof fetchProducts>>
+): OverviewData {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const cutoff = sevenDaysAgo.toISOString().slice(0, 10);
@@ -30,11 +33,9 @@ async function loadOverview(): Promise<OverviewData> {
       bestSellerSku = sku;
     }
   }
-  let bestSellerName: string | null = null;
-  if (bestSellerSku) {
-    const products = await fetchProducts();
-    bestSellerName = products.find((p) => p.SKU === bestSellerSku)?.ProductName ?? bestSellerSku;
-  }
+  const bestSellerName = bestSellerSku
+    ? (products.find((p) => p.SKU === bestSellerSku)?.ProductName ?? bestSellerSku)
+    : null;
 
   const customerById = new Map(customers.map((c) => [c.CustomerID, c]));
   const recentOrders = [...orders]
@@ -62,10 +63,20 @@ export default async function ManagementPage() {
     return <ManagementLogin />;
   }
 
-  const overview = await loadOverview();
+  const [orders, lines, customers, products] = await Promise.all([
+    fetchOrders(),
+    fetchOrderLines(),
+    fetchCustomers(),
+    fetchProducts(),
+  ]);
+
+  const overview = loadOverview(orders, lines, customers, products);
+
+  const availableYears = [...new Set(orders.map((o) => Number(o.OrderDate.slice(0, 4))))].sort((a, b) => a - b);
 
   return (
     <Dashboard
+      availableYears={availableYears}
       sections={[{ id: "overview", label: "Overview", content: <OverviewSection data={overview} /> }]}
     />
   );
