@@ -34,6 +34,7 @@ import CustomersSection from "@/components/management/CustomersSection";
 import PromotionsSection from "@/components/management/PromotionsSection";
 import TeamSection from "@/components/management/TeamSection";
 import SeasonalitySection from "@/components/management/SeasonalitySection";
+import AssistantSection from "@/components/management/AssistantSection";
 
 export const dynamic = "force-dynamic";
 
@@ -172,6 +173,11 @@ export default async function ManagementPage() {
           id: "seasonality",
           label: "Seasonality",
           content: <SeasonalitySection rows={seasonality} />,
+        },
+        {
+          id: "assistant",
+          label: "Ask the Data",
+          content: <AssistantSection />,
         },
       ]}
     />
