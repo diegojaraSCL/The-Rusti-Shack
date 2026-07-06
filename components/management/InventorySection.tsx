@@ -23,13 +23,22 @@ export default function InventorySection({
             ? "Everything is stocked above its reorder point."
             : `${needReorder.length} product${needReorder.length === 1 ? "" : "s"} need${needReorder.length === 1 ? "s" : ""} reordering now.`}
         </h2>
-        <button
-          onClick={() => setInfoOpen((v) => !v)}
-          className="w-6 h-6 rounded-full bg-navy-50 text-navy-800 text-xs font-bold flex items-center justify-center shrink-0"
-          aria-label="About reorder points"
-        >
-          i
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
+          <a
+            href="/api/management/export/inventory"
+            className="bg-teal-500 hover:bg-teal-600 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors"
+          >
+            Download (CSV)
+          </a>
+          <button
+            onClick={() => setInfoOpen((v) => !v)}
+            className="w-6 h-6 rounded-full bg-navy-50 text-navy-800 text-xs font-bold flex items-center justify-center"
+            aria-label="About reorder points"
+          >
+            i
+          </button>
+        </div>
       </div>
 
       {infoOpen && (

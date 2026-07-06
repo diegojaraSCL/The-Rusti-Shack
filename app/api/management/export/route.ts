@@ -2,16 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { isValidSession, MANAGEMENT_COOKIE_NAME } from "@/lib/management-auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-
-function csvField(value: unknown): string {
-  let s = String(value ?? "");
-  // Neutralize CSV formula injection: a customer-supplied name like
-  // "=HYPERLINK(...)" would otherwise execute as a formula when this file
-  // is opened in Excel/Sheets. Prefixing with a quote forces literal text.
-  if (/^[=+\-@]/.test(s)) s = `'${s}`;
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+import { toCsv } from "@/lib/csv";
 
 // Supabase/PostgREST caps a single request at 1000 rows by default. With
 // 15,000+ orders and 25,000+ order lines now loaded, a plain .select()
@@ -96,12 +87,10 @@ export async function GET() {
       order?.ShippingFee ?? "",
       order?.OrderTotal ?? "",
       order?.PaymentMethod ?? "",
-    ]
-      .map(csvField)
-      .join(",");
+    ];
   });
 
-  const csv = [header.join(","), ...rows].join("\n");
+  const csv = toCsv(header, rows);
 
   return new NextResponse(csv, {
     headers: {

@@ -56,7 +56,16 @@ export default function HistoricalsSection({ monthly }: { monthly: MonthlyFinanc
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-navy-800 mb-4 leading-snug">{title}</h2>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <h2 className="text-lg font-bold text-navy-800 leading-snug">{title}</h2>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
+        <a
+          href="/api/management/export/financials"
+          className="shrink-0 bg-teal-500 hover:bg-teal-600 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors"
+        >
+          Download (CSV)
+        </a>
+      </div>
       <div className="bg-white rounded-2xl border border-sand-200 p-4">
         <ResponsiveContainer width="100%" height={360}>
           <ComposedChart data={filtered} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
